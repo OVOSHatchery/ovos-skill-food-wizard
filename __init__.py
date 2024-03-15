@@ -6,9 +6,9 @@
 import re
 import requests
 
-from mycroft.skills.core import MycroftSkill, intent_file_handler
-from mycroft.skills.context import *
-from mycroft_bus_client.message import Message
+from ovos_workshop.skills import OVOSSkill
+from ovos_workshop.decorators import intent_handler
+from ovos_bus_client.message import Message
 from .skill import providerHelper
 from ovos_utils.process_utils import RuntimeRequirements
 from ovos_utils import classproperty
@@ -16,12 +16,13 @@ from ovos_utils import classproperty
 __author__ = 'aix'
 
 
-class FoodWizardSkill(MycroftSkill):
-    def __init__(self):
+class FoodWizardSkill(OVOSSkill):
+
+    def __init__(self, *args, **kwargs):
         """
         FoodWizard Skill Class.
         """
-        super(FoodWizardSkill, self).__init__(name="FoodWizardSkill")
+        super().__init__(*args, **kwargs)
         self.app_id = None
         self.app_key = None
         self.recipes_object = None
@@ -58,17 +59,17 @@ class FoodWizardSkill(MycroftSkill):
                                   self.handle_read_current_recipe_instructions_intent)
         self.gui.register_handler('foodwizard.close', self.handle_close_intent)
 
-    @intent_file_handler("open.food.wizard.intent")
+    @intent_handler("open.food.wizard.intent")
     def showHome(self, message):
         """
         Show A Homescreen
         
         Args:
             message: Mycroft Message
-        """       
+        """
         self.gui.show_page("FoodWizardHome.qml")
 
-    @intent_file_handler("go.back.to.recipes.selection.intent")
+    @intent_handler("go.back.to.recipes.selection.intent")
     def handle_go_back_to_recipes_selection_intent(self, message):
         """
         Go Back To Recipes Selection
@@ -80,7 +81,7 @@ class FoodWizardSkill(MycroftSkill):
             return
 
         self.gui.show_page("SearchRecipe.qml", override_idle=True)
-        
+
     def handle_search_recipe_by_ui(self, message):
         """ 
         Search Recipe From Home
@@ -95,7 +96,7 @@ class FoodWizardSkill(MycroftSkill):
         else:
             return
 
-    @intent_file_handler('search.recipe.intent')
+    @intent_handler('search.recipe.intent')
     def handle_search_recipe_by_voice(self, message):
         """
         Search Recipes By Keywords
@@ -110,7 +111,7 @@ class FoodWizardSkill(MycroftSkill):
             self.handle_search_query(searchString)
         else:
             return
-    
+
     def handle_search_query(self, searchString):
         cat = re.split('\s+', searchString)
         if 'and' in cat:
@@ -118,7 +119,7 @@ class FoodWizardSkill(MycroftSkill):
             del cat[index]
         cat = ','.join([x for x in cat if x])
         results = None
-        
+
         if self.app_id and self.app_key:
             results = self.use_direct_api(cat)
         else:
@@ -133,12 +134,15 @@ class FoodWizardSkill(MycroftSkill):
                 print(x['recipe']['source'].lower().replace(' ', ''))
                 print(x['recipe']['url'])
             self.gui.show_page("SearchRecipe.qml")
-            self.speak_dialog("found.recipes", data={
-                              "number": resultCount, "query": searchString})
+            self.speak_dialog("found.recipes",
+                              data={
+                                  "number": resultCount,
+                                  "query": searchString
+                              })
         else:
             self.speak_dialog("failed.search")
 
-    @intent_file_handler('show.recipe.intent')
+    @intent_handler('show.recipe.intent')
     def handle_show_recipes_voice_intent(self, message):
         """
         Show Recipes By Voice
@@ -150,19 +154,25 @@ class FoodWizardSkill(MycroftSkill):
         searchString = utterance
         searchString = re.sub(r'\W+', '', searchString)
         searchString = searchString.lower()
-        
+
         for recipe in self.recipes_object['hits']:
             recipe_match_string = recipe['recipe']['label']
             recipe_match_string = re.sub(r'\W+', '', recipe_match_string)
             recipe_match_string = recipe_match_string.lower()
-            
+
             if len(searchString.split()) <= 2:
                 if searchString == recipe_match_string:
-                    self.handle_show_recipes(Message("foodwizard.showrecipe", data={"recipe": recipe['recipe']['url']}))
-            
+                    self.handle_show_recipes(
+                        Message("foodwizard.showrecipe",
+                                data={"recipe": recipe['recipe']['url']}))
+
             else:
-                if len(set(searchString.split()) & set(recipe_match_string.split())) > 2:
-                    self.handle_show_recipes(Message("foodwizard.showrecipe", data={"recipe": recipe['recipe']['url']}))
+                if len(
+                        set(searchString.split())
+                        & set(recipe_match_string.split())) > 2:
+                    self.handle_show_recipes(
+                        Message("foodwizard.showrecipe",
+                                data={"recipe": recipe['recipe']['url']}))
 
     def handle_show_recipes(self, message):
         """
@@ -203,7 +213,7 @@ class FoodWizardSkill(MycroftSkill):
                 self.active_recipe = recipeTitle
                 self.gui.show_page("RecipeDetail.qml", override_idle=True)
 
-    @intent_file_handler('read.current.recipe.ingredients.intent')
+    @intent_handler('read.current.recipe.ingredients.intent')
     def handle_read_current_recipe_ingredients_intent(self, message):
         """ 
         Read Current Recipe Ingredients
@@ -219,7 +229,7 @@ class FoodWizardSkill(MycroftSkill):
                     for ingredient in recipeIngredientsList:
                         self.speak(ingredient.get("name"))
 
-    @intent_file_handler('read.current.recipe.instructions.intent')
+    @intent_handler('read.current.recipe.instructions.intent')
     def handle_read_current_recipe_instructions_intent(self, message):
         """ 
         Read Current Recipe Instructions
@@ -253,10 +263,11 @@ class FoodWizardSkill(MycroftSkill):
             ingredient_name = ingredient['text']
             ingredient_image = ingredient['image']
             ingredient_quantity = ingredient['quantity']
-            ingredients_list.append(
-                {'name': ingredient_name,
-                 'image': ingredient_image,
-                 'quantity': ingredient_quantity})
+            ingredients_list.append({
+                'name': ingredient_name,
+                'image': ingredient_image,
+                'quantity': ingredient_quantity
+            })
         return ingredients_list
 
     def use_direct_api(self, query):
@@ -269,7 +280,7 @@ class FoodWizardSkill(MycroftSkill):
         method = "GET"
         url = "https://api.edamam.com/search"
         data = f"?q={query}&app_id={self.app_id}&app_key={self.app_key}&count=5"
-        response = requests.request(method, url+data)
+        response = requests.request(method, url + data)
         return response.json()
 
     def use_ovos_api(self, query):
@@ -282,21 +293,8 @@ class FoodWizardSkill(MycroftSkill):
         method = "GET"
         url = "https://api.openvoiceos.com/recipes/search_recipe"
         data = f"?query={query}&count=5"
-        response = requests.request(method, url+data)
+        response = requests.request(method, url + data)
         return response.json()
 
-    def stop(self):
-        """
-        Mycroft Stop Function
-        """
-        pass
-    
     def handle_close_intent(self, message):
         self.gui.release()
-
-
-def create_skill():
-    """
-    Mycroft Create Skill Function
-    """
-    return FoodWizardSkill()
